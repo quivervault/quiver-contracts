@@ -1,0 +1,6 @@
+node_modules/
+out/
+.env
+*.key
+*.keystore
+.DS_Store
