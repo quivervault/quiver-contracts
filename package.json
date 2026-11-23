@@ -1,15 +1,1 @@
-{
-  "name": "thaler-vault",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "solc": "^0.8.24"
-  }
-}
+{"dependencies":{"solc":"^0.8.24"},"description":"Non-custodial yield vault contracts for Quiver on Robinhood Chain. These sources match the deployed contracts byte-for-byte (Sourcify exact match).","devDependencies":{"ethers":"^6.17.0","ganache":"^7.9.2"},"license":"MIT","name":"quiver-contracts","scripts":{"compile":"node compile.js","test":"node test/vault.test.js"},"version":"0.1.0"}
