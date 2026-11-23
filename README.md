@@ -47,11 +47,21 @@ optimizer 200 runs.
 - Target APRs are variable and derive from trailing perpetual funding
   rates; they are not guaranteed returns.
 
-## Build
+## Repository layout
+
+- `contracts/` - the four deployed contract sources
+- `docs/ARCHITECTURE.md` - roles, flows, and the trust model
+- `deployments/` - deployed addresses per network
+- `test/` - functional tests of the vault loop on a local EVM
+- `PERP_STRATEGY_DESIGN.md` - design notes for the funding-harvest strategy
+- `SECURITY.md` - security status and how to report a vulnerability
+
+## Build and test
 
 ```sh
 npm install
-node compile.js   # compiles all contracts into out/
+npm run compile   # compiles all contracts into out/
+npm test          # runs the vault-loop test suite on a local EVM
 ```
 
 ## License
