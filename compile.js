@@ -3,7 +3,7 @@ const path = require('path');
 const solc = require('solc');
 
 const sources = {};
-for (const f of ['QuiverVault.sol', 'QuiverVaultFactory.sol', 'SimpleStrategy.sol', 'PerpStrategy.sol']) {
+for (const f of ['QuiverVault.sol', 'QuiverVaultFactory.sol', 'SimpleStrategy.sol', 'PerpStrategy.sol', 'MorphoStrategy.sol', 'StakingStrategy.sol', 'LPStrategy.sol']) {
   sources[f] = { content: fs.readFileSync(path.join(__dirname, 'contracts', f), 'utf8') };
 }
 const input = {
