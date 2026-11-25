@@ -1,1 +1,99 @@
-{"assets":{"ETH":"native (address 0)","USDG":"0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"},"chainId":4663,"compiler":{"optimizer":{"enabled":true,"runs":200},"solc":"0.8.24"},"contracts":{"LPStrategy":"0x3f7c4d932aC21e4Be6eAD3feee5E51378425814d","MorphoStrategy":"0x431A1C73DA1783bFD445aFA8BB062DAB98E589ec","PerpStrategy":"0xB119368e1E1Abf8DF775577CFBCB103bB8fd2736","QuiverVault (reference vault, profile 1)":"0xd01E1ea70F672030d58D9a9BaC1352490a9Eb261","QuiverVaultFactory":"0x681eE15f4c271143dAbf4a752eAaecB7F015A2E9","SimpleStrategy":"0xf116aEa2e1D7fF46708763927df1Ba499D78ddC1","StakingStrategy":"0x63bF95ca0ebCeacE280d99780539e461021F2D0f"},"network":"Robinhood Chain","notes":["PerpStrategy is RETIRED: un-approved in the factory on 2026-11-25 (tx 0x966ca5e3bfd9eddf3764ada9e6b4635d0226033f46aeb2a2b6327fafaf3bf204, block 122774037). It remains deployed but no vault can use it.","LPStrategy (Uniswap V3 WETH/USDG 0.01% concentrated liquidity) is deployed and approved in the factory; it holds no funds yet.","MorphoStrategy (Steakhouse USDG Morpho Vault V2) is deployed and approved in the factory; it holds no funds yet.","StakingStrategy (wstETH) is deployed and approved in the factory; it stays inert until a WETH/wstETH pool with real liquidity exists on Robinhood Chain.","Contracts are not yet audited. Use small amounts."],"site":"https://quivervault.xyz","transactions":{"LPStrategy":{"approve":"0x2c5ed786965c6f1e82da2e24b02d4036acd8afa26844576a3d70b29f8c20a4a7","deploy":"0x15e866e28973adc95a780109d70e2a268de875c83663f67b8897f1a0a30c87c4"},"MorphoStrategy":{"approve":"0x4b5c8d60e58173e3d7674bf4305dab2f20b94f280765f7f2e7acf9255e99cc66","deploy":"0x53c22c4510a4891a808c2eede15370282ee8a6f8d6d1bd2a12d8d37bc44816fb"},"PerpStrategy":{"approve":"0xdf58dcf20d514e9bf63e10e33f16138c7d615f5c554cb87ad5d4889fc7d762b0","deploy":"0x069985325bd043c538c3336774d34c325cd03ee9812139c43a2b7d1ea7b6e540","unapprove":"0x966ca5e3bfd9eddf3764ada9e6b4635d0226033f46aeb2a2b6327fafaf3bf204"},"QuiverVaultFactory":{"deploy":"0xcaa731cbb76874db6049142e2f35147f806f1f1d910c08c2a4ff192b9ed32622"},"SimpleStrategy":{"approve":"0x4fa818965f8f5a7f38324ce28a1c13fbf4b694a1eaeb8ad6e5074714f016b7e5","deploy":"0x29c3917f347662b4e7f5f883ab73a04380f1f8e487c78b28771ec5ca41ccad84"},"StakingStrategy":{"approve":"0xe85c3c7affea07033b072a57847c1f12be3fee875d4094f17e584f05b36c05e2","deploy":"0x6b3bce0292dd1417b5de245c49ed3d442c82175a419f013c413003cda9765ec6"}},"verification":"Sourcify exact match (creation and runtime bytecode) for every contract below"}
+{
+  "assets": {
+    "ETH": "native (address 0)",
+    "USDG": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+  },
+  "chainId": 4663,
+  "compiler": {
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "solc": "0.8.24"
+  },
+  "contracts": {
+    "LPStrategy": "0x3f7c4d932aC21e4Be6eAD3feee5E51378425814d",
+    "MorphoStrategy": "0x431A1C73DA1783bFD445aFA8BB062DAB98E589ec",
+    "PerpStrategy": "0xB119368e1E1Abf8DF775577CFBCB103bB8fd2736",
+    "QuiverVault (reference vault, profile 1)": "0xd01E1ea70F672030d58D9a9BaC1352490a9Eb261",
+    "QuiverVaultFactory": "0x681eE15f4c271143dAbf4a752eAaecB7F015A2E9",
+    "SimpleStrategy": "0xf116aEa2e1D7fF46708763927df1Ba499D78ddC1",
+    "StakingStrategy": "0x63bF95ca0ebCeacE280d99780539e461021F2D0f"
+  },
+  "network": "Robinhood Chain",
+  "notes": [
+    "PerpStrategy is RETIRED: un-approved in the factory on 2026-11-25 (tx 0x966ca5e3bfd9eddf3764ada9e6b4635d0226033f46aeb2a2b6327fafaf3bf204, block 122774037). It remains deployed but no vault can use it.",
+    "LPStrategy (Uniswap V3 WETH/USDG 0.01% concentrated liquidity) is deployed and approved in the factory; it holds no funds yet.",
+    "MorphoStrategy (Steakhouse USDG Morpho Vault V2) is deployed and approved in the factory; it holds no funds yet.",
+    "StakingStrategy (wstETH) is deployed and approved in the factory; it stays inert until a WETH/wstETH pool with real liquidity exists on Robinhood Chain.",
+    "Contracts are not yet audited. Use small amounts."
+  ],
+  "site": "https://quivervault.xyz",
+  "transactions": {
+    "LPStrategy": {
+      "approve": "0x2c5ed786965c6f1e82da2e24b02d4036acd8afa26844576a3d70b29f8c20a4a7",
+      "deploy": "0x15e866e28973adc95a780109d70e2a268de875c83663f67b8897f1a0a30c87c4"
+    },
+    "MorphoStrategy": {
+      "approve": "0x4b5c8d60e58173e3d7674bf4305dab2f20b94f280765f7f2e7acf9255e99cc66",
+      "deploy": "0x53c22c4510a4891a808c2eede15370282ee8a6f8d6d1bd2a12d8d37bc44816fb"
+    },
+    "PerpStrategy": {
+      "approve": "0xdf58dcf20d514e9bf63e10e33f16138c7d615f5c554cb87ad5d4889fc7d762b0",
+      "deploy": "0x069985325bd043c538c3336774d34c325cd03ee9812139c43a2b7d1ea7b6e540",
+      "unapprove": "0x966ca5e3bfd9eddf3764ada9e6b4635d0226033f46aeb2a2b6327fafaf3bf204"
+    },
+    "QuiverVaultFactory": {
+      "deploy": "0xcaa731cbb76874db6049142e2f35147f806f1f1d910c08c2a4ff192b9ed32622"
+    },
+    "SimpleStrategy": {
+      "approve": "0x4fa818965f8f5a7f38324ce28a1c13fbf4b694a1eaeb8ad6e5074714f016b7e5",
+      "deploy": "0x29c3917f347662b4e7f5f883ab73a04380f1f8e487c78b28771ec5ca41ccad84"
+    },
+    "StakingStrategy": {
+      "approve": "0xe85c3c7affea07033b072a57847c1f12be3fee875d4094f17e584f05b36c05e2",
+      "deploy": "0x6b3bce0292dd1417b5de245c49ed3d442c82175a419f013c413003cda9765ec6"
+    }
+  },
+  "v2": {
+    "compiler": {
+      "evmVersion": "shanghai",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "solc": "0.8.39+commit.ce47f2c8"
+    },
+    "contracts": {
+      "LPStrategy": "0xcf5B472A1eAD28cB6B473e30ED38a1E99868642E",
+      "MorphoStrategy": "0x2ca54635143f5cFde2a5CbFE23989CF736910334",
+      "QuiverVaultFactory": "0x6ea2822c4a51D9a13386332e4a46C9fe8750F985"
+    },
+    "deployed": "2026-11-25",
+    "notes": [
+      "v2 fixes the findings of the HEY Research Lab review (GHSA-mgpc-wcqx-fc7x): LPStrategy books only collect() payouts as fees (never price-swapped principal); factory strategy approvals are contracts-only behind a 2-day timelock with instant revoke; vault recalls are callable by the owner as well as the executor; admin and executor are separate keys.",
+      "MorphoStrategy and LPStrategy approvals were proposed on 2026-11-25 and become executable after the 2-day timelock (2026-11-27). Until then no v2 vault can deploy to them.",
+      "v1 contracts above remain deployed; the site still points at v1 until the v2 approvals execute and funds migrate."
+    ],
+    "roles": {
+      "admin": "0x0d6fa82F4EAA4cfddaEeB5F8b3D66793Af5D621b",
+      "executor": "0x28D227EbA00F81821238c8383c14Dd1723346221"
+    },
+    "sources": "contracts-v2/ in this repo",
+    "transactions": {
+      "LPStrategy": {
+        "deploy": "0x25c3f945a81c8afb6344c2370d26245bbdbe51c8efdff9dc82cf59da3cda7a46",
+        "proposeApproval": "0x7465bbe2fdf87aa8f1435dec900cf5d97d621f17551617c77080d1bba28031dc"
+      },
+      "MorphoStrategy": {
+        "deploy": "0xbb2e08e0ea95c8bfe3de862ab7c6c83730de8f7b58c7ae21755e2cbc5d21426e",
+        "proposeApproval": "0x0727d4cf5cf720dde5e1b9caca657f851d922face5bf97fae7790f800575d9ea"
+      },
+      "QuiverVaultFactory": {
+        "deploy": "0x9e9c54081d896b19e4b29d5e9b4f23fa2ce20f373ae60e0bb8403a4c94e363d9"
+      }
+    },
+    "verification": "Sourcify exact match (creation and runtime bytecode) for QuiverVaultFactory, MorphoStrategy, LPStrategy"
+  },
+  "verification": "Sourcify exact match (creation and runtime bytecode) for every contract below"
+}
