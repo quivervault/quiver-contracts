@@ -153,5 +153,21 @@
     "status": "deployed 2026-11-26; strategy approvals proposed, executable after timelock; supersedes v3 before any v3 vault existed (v3 approvals never executed)",
     "verification": "Sourcify exact match (creation + runtime) for factory, MorphoStrategy, LPStrategy; solc 0.8.39+commit.ce47f2c8, optimizer 200 runs, evmVersion shanghai"
   },
-  "verification": "Sourcify exact match (creation and runtime bytecode) for every contract below"
+  "verification": "Sourcify exact match (creation and runtime bytecode) for every contract below",
+  "v5": {
+    "factory": "0x3eaA350865b9502B89C9627b0aa57E20932D6222",
+    "factoryTx": "0xd229c5082b0f69d2f228d03782098bcd7a6fe81c4c277d4752acd046bc115d25",
+    "morphoStrategy": "0x77F6a376e95Ba06BF6E93dfC320969231C2DFc07",
+    "morphoDeployTx": "0xb339281346bbb382315d4a1dce2c9b984eeb746905b62952e6a652777809c612",
+    "lpStrategy": "0xC3a21f62A56070bE8Ac42dF6565394192383073f",
+    "lpDeployTx": "0xb4e8eefdc94993522067e31b03d4a74ee21ace0536f37bacefc904de43a24de3",
+    "admin": "0x0d6fa82F4EAA4cfddaEeB5F8b3D66793Af5D621b",
+    "executor": "0x28D227EbA00F81821238c8383c14Dd1723346221",
+    "usdg": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+    "morphoProposeTx": "0x5734d84a24c918fdcf221ea7b8c5dba93968196ec772664b98ab1db97fe9d8cb",
+    "morphoEta": "1795874584",
+    "lpProposeTx": "0x2d837ec822dfa35145f75fc92e4279981b2725604d5920eb7559afe47c5f0f86",
+    "lpEta": "1795874625",
+    "note": "v5: HeyResearch round-4 fixes (mint counted against window cap, 10-tick mint deviation, range must contain spot+TWAP, rolling window decay, cancelAdminProposal guard). Approvals proposed, executable after 2-day timelock."
+  }
 }
