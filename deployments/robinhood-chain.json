@@ -169,5 +169,21 @@
     "lpProposeTx": "0x2d837ec822dfa35145f75fc92e4279981b2725604d5920eb7559afe47c5f0f86",
     "lpEta": "1795874625",
     "note": "v5: HeyResearch round-4 fixes (mint counted against window cap, 10-tick mint deviation, range must contain spot+TWAP, rolling window decay, cancelAdminProposal guard). Approvals proposed, executable after 2-day timelock."
+  },
+  "v6": {
+    "factory": "0xee7f6607aaBb3E62F1Eee7143Cc52AEC93472369",
+    "factoryTx": "0x3abd3d9af7e18b61e42b8f020f883cd4e9135d95e2ab2a379968e62bd3230b14",
+    "morphoStrategy": "0x8070A912be3E5ed7a92ee98739E1a223c07551A5",
+    "morphoDeployTx": "0xad5f401f3e1f38b357888b04303a747bc551f85d17fe51fa2c45a1489df32563",
+    "lpStrategy": "0x265F9cfF1fdf2Bf396e3e15Cc6bb3ac8cF09c8Cd",
+    "lpDeployTx": "0xf79beeed9be9ec1fe2f9565bca17a9a73c854ccca3b80b793b963b59677cc82c",
+    "admin": "0x0d6fa82F4EAA4cfddaEeB5F8b3D66793Af5D621b",
+    "executor": "0x28D227EbA00F81821238c8383c14Dd1723346221",
+    "usdg": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+    "morphoProposeTx": "0x9c0ad0369cf9122590e0914837425f548a98f5f9948de1a0e12b3f8ad06d7b72",
+    "morphoEta": "1795894451",
+    "lpProposeTx": "0xd2dd58bbc61a755be45cab564358b9bf07cd4a3176f52b4be17940f5bb1d22d0",
+    "lpEta": "1795894467",
+    "note": "v6: HeyResearch round-5 fixes (mints get their own 100%-of-principal window budget separate from swaps; decay always re-anchors so a dust swap cannot plant a stale window start). Approvals proposed, executable after 2-day timelock."
   }
 }
