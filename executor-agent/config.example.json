@@ -11,19 +11,21 @@
       "hasTimelockGetters": false,
       "lp": "0x3f7c4d932aC21e4Be6eAD3feee5E51378425814d",
       "lpWritesBlocked": true,
-      "morpho": "0x431A1C73DA1783bFD445aFA8BB062DAB98E589ec"
+      "morpho": "0x431A1C73DA1783bFD445aFA8BB062DAB98E589ec",
+      "statusOnly": true
     },
     "v6": {
       "factory": "0xee7f6607aaBb3E62F1Eee7143Cc52AEC93472369",
       "hasTimelockGetters": true,
       "lp": "0x265F9cfF1fdf2Bf396e3e15Cc6bb3ac8cF09c8Cd",
       "lpWritesBlocked": false,
-      "morpho": "0x8070A912be3E5ed7a92ee98739E1a223c07551A5"
+      "morpho": "0x8070A912be3E5ed7a92ee98739E1a223c07551A5",
+      "statusOnly": false
     }
   },
   "gas": {
     "gasLimitMultiplierBps": 13000,
-    "maxFeePerGasWei": "25000000"
+    "maxFeePerGasWei": "50000000"
   },
   "policy": {
     "lowGasWarnEth": "0.00005",
