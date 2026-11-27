@@ -385,7 +385,7 @@ async function buildPlan(p, s) {
       add({
         kind: 'COLLECT_YIELD_MORPHO', signer: 'executor', factoryKey: f.key, to: f.cfg.morpho,
         fn: 'collectYield', args: [CFG.executorWallet, f.morpho.accruedYield.toString()],
-        describe: `[${f.key}] Collect yield Morpho ${fmt(f.morpho.accruedYield, USDG_DEC)} USDG ke executor wallet (settle to vault = langkah manual terpisah)`
+        describe: `[${f.key}] Collect Morpho yield ${fmt(f.morpho.accruedYield, USDG_DEC)} USDG to the executor wallet (settling to vaults is a separate manual step)`
       });
     }
 
@@ -428,14 +428,14 @@ async function buildPlan(p, s) {
         add({
           kind: 'COLLECT_YIELD_LP', signer: 'executor', factoryKey: f.key, to: f.cfg.lp,
           fn: 'collectYield', args: [CFG.usdg, CFG.executorWallet, f.lp.fee1.toString()],
-          describe: `[${f.key}] Collect yield LP ${fmt(f.lp.fee1, USDG_DEC)} USDG ke executor wallet (settle to vault = langkah manual terpisah)`
+          describe: `[${f.key}] Collect LP yield ${fmt(f.lp.fee1, USDG_DEC)} USDG to the executor wallet (settling to vaults is a separate manual step)`
         });
       }
       if (f.lp.fee0 >= minCollectEth) {
         add({
           kind: 'COLLECT_YIELD_LP', signer: 'executor', factoryKey: f.key, to: f.cfg.lp,
           fn: 'collectYield', args: [ZERO, CFG.executorWallet, f.lp.fee0.toString()],
-          describe: `[${f.key}] Collect yield LP ${fmt(f.lp.fee0, ETH_DEC)} ETH ke executor wallet (settle to vault = langkah manual terpisah)`
+          describe: `[${f.key}] Collect LP yield ${fmt(f.lp.fee0, ETH_DEC)} ETH to the executor wallet (settling to vaults is a separate manual step)`
         });
       }
     }
@@ -501,7 +501,7 @@ async function executeProposal(p, proposalId, confirmHash) {
   const key = fs.readFileSync(keyPath, 'utf8').trim();
   const wallet = new ethers.Wallet(key, p);
   if (wallet.address.toLowerCase() !== expected.toLowerCase()) {
-    throw new Error(`signer mismatch: key menghasilkan ${wallet.address}, diharapkan ${expected} — berhenti.`);
+    throw new Error(`signer mismatch: key yields ${wallet.address}, expected ${expected} — stopping.`);
   }
   await assertContract(p, pr.to, 'target');
   const abi = pr.kind === 'ACTIVATE_STRATEGY' ? FACTORY_ABI : pr.kind === 'DEPLOY' || pr.kind === 'RECALL' ? VAULT_ABI : (pr.kind === 'SUPPLY' || pr.kind === 'COLLECT_YIELD_MORPHO') ? MORPHO_ABI : LP_ABI;
@@ -527,7 +527,7 @@ async function executeProposal(p, proposalId, confirmHash) {
   console.log(`Executing ${pr.id}: ${pr.describe}`);
   console.log(`signer ${wallet.address} (${pr.signer}) | gasLimit ${gasLimit.toString()} | maxFee ${ethers.formatUnits(maxFee, 'gwei')} gwei`);
   const tx = await contract[pr.fn](...args, { maxFeePerGas: maxFee, gasLimit });
-  console.log(`tx terkirim: ${tx.hash}`);
+  console.log(`tx sent: ${tx.hash}`);
   const rc = await tx.wait();
   console.log(`status ${rc.status} | block ${rc.blockNumber} | gasUsed ${rc.gasUsed.toString()}`);
   const after = await p.getBalance(wallet.address);
@@ -546,8 +546,8 @@ async function recallPreview(p, vaultAddr, strategyAddr, sym, amountStr) {
   const v = new ethers.Contract(vaultAddr, VAULT_ABI, p);
   const [owner, executor, deployedIn] = await Promise.all([v.owner(), v.executor(), v.deployedIn(strategyAddr, token)]);
   console.log(`Recall preview: ${amountStr} ${sym} from strategy ${strategyAddr} to vault ${vaultAddr}`);
-  console.log(`owner ${owner} | executor ${executor} | deployedIn strategi ini: ${fmt(deployedIn, dec)} ${sym}`);
-  if (amount > deployedIn) throw new Error('jumlah recall melebihi deployedIn — berhenti.');
+  console.log(`owner ${owner} | executor ${executor} | deployedIn this strategy: ${fmt(deployedIn, dec)} ${sym}`);
+  if (amount > deployedIn) throw new Error('recall amount exceeds deployedIn — stopping.');
   const iface = new ethers.Interface(VAULT_ABI);
   const sim = await simulate(p, executor, vaultAddr, iface, 'recallFromStrategy', [strategyAddr, token, amount]);
   console.log(`recallFromStrategy simulation from executor: OK | gas ~${sim.gas ? sim.gas.toString() : '?'}`);
