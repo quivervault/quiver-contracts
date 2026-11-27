@@ -6,19 +6,32 @@
  * Quiver vault + strategy, plans the executor actions that are due, simulates
  * each one, and shows the operator a human-readable preview. It broadcasts NOTHING
  * on its own: `execute` runs exactly ONE previewed action and only with
- * `--confirm GAS` (the operator's explicit confirmation). Every state-changing call is
- * simulated first (eth_call); if simulation reverts, the agent stops.
+ * `--confirm <hash>`, the short hash of that proposal's target + calldata
+ * printed by `plan` (the operator's explicit confirmation, bound to the exact
+ * bytes reviewed). Every state-changing call is simulated first (eth_call);
+ * if simulation reverts, the agent stops.
  *
  * Safety model (enforced in code):
  *  - status/plan NEVER load a private key. Previews simulate with eth_call
  *    `from` = the known admin/executor address.
  *  - execute loads exactly one key file (admin OR executor, per action),
  *    re-simulates, checks chain id / contract code / signer balance, then
- *    sends ONE transaction with pinned fees. No loops, no batching.
+ *    sends ONE transaction with pinned fees. No loops, no batching. It also
+ *    refuses to broadcast when the live gas price exceeds the configured
+ *    fee cap, so a fee spike cannot strand a transaction.
+ *  - Confirmation is bound to the reviewed bytes: each proposal carries a
+ *    short hash of (target + calldata). `execute` recomputes it from the
+ *    stored proposal and refuses if the operator's hash does not match, so
+ *    re-running `plan` can never silently swap what gets signed.
  *  - Owner-only functions (vault withdraw / claimYield / setClaimSchedule)
  *    are never called. The agent only reports claim-due status.
- *  - v1 LPStrategy writes are hard-blocked (standing instruction: never call
- *    collectFees/collectYield/rebalance/mint/swap on the live v1 LP).
+ *  - v1 is status-only in code: a factory gets proposals ONLY when its config
+ *    explicitly sets `statusOnly: false`. A missing or true flag means
+ *    read-only (fail-closed), so v1 can never receive a deploy, supply,
+ *    collect, or LP write from this agent.
+ *  - One-sided LP mints are never proposed (they revert on-chain); when only
+ *    one side is unminted the planner notes that a ratio swap is needed
+ *    first instead of proposing a doomed mint.
  *  - Yield settlement into per-vault reserves (fundYield + creditYield) is
  *    NEVER auto-planned: strategies are pooled and per-vault attribution is
  *    a human decision. Collect proposals stop at the executor wallet.
@@ -28,7 +41,7 @@
  * Commands:
  *   node agent.js status                      live read-only report (v1 + v6)
  *   node agent.js plan                        proposals + simulations, saved
- *   node agent.js execute <id> --confirm GAS  run ONE proposal from latest plan
+ *   node agent.js execute <id> --confirm <hash>  run ONE proposal from latest plan
  *   node agent.js recall-preview <vault> <strategy> <ETH|USDG> <amount>
  *   node agent.js help
  */
@@ -317,6 +330,14 @@ async function buildPlan(p, s) {
     const mIface = new ethers.Interface(MORPHO_ABI);
     const lIface = new ethers.Interface(LP_ABI);
 
+    // Status-only gate (fail-closed): a factory receives proposals ONLY when
+    // its config explicitly sets statusOnly: false. A missing flag reads as
+    // blocked, so v1 (and any future retired factory) can never be written to.
+    if (f.cfg.statusOnly !== false) {
+      notes.push(`[${f.key}] status-only factory — read-only, no proposals are generated for it.`);
+      continue;
+    }
+
     // A. Activation (admin): execute timelocked approvals that are due.
     for (const [sName, a] of Object.entries(f.approvals)) {
       if (!a.approved && a.eta !== null && a.eta !== 0n) {
@@ -374,7 +395,11 @@ async function buildPlan(p, s) {
         notes.push(`[${f.key}] LP has active state but ALL v1 LP writes are hard-blocked — no LP proposals.`);
       }
     } else {
-      if (f.lp.tokenId === 0n && (f.lp.unminted0 >= minDeployEth || f.lp.unminted1 >= minDeployUsdg)) {
+      const oneSided = f.lp.tokenId === 0n && ((f.lp.unminted0 >= minDeployEth) !== (f.lp.unminted1 >= minDeployUsdg));
+      if (oneSided) {
+        notes.push(`[${f.key}] LP has only one side unminted (${fmt(f.lp.unminted0, ETH_DEC)} WETH/ETH + ${fmt(f.lp.unminted1, USDG_DEC)} USDG) — a one-sided full-range mint reverts on-chain, so no mint is proposed; a ratio swap is needed first (manual step).`);
+      }
+      if (f.lp.tokenId === 0n && f.lp.unminted0 >= minDeployEth && f.lp.unminted1 >= minDeployUsdg) {
         if (f.lp.paused) notes.push(`[${f.key}] LP has unminted funds but mintPaused=true — mint not proposed.`);
         else {
           const lpC = new ethers.Contract(f.cfg.lp, LP_ABI, p);
@@ -422,6 +447,9 @@ async function buildPlan(p, s) {
   for (const pr of proposals) {
     const from = pr.signer === 'admin' ? CFG.adminWallet : CFG.executorWallet;
     const args = pr.args.map((x) => (typeof x === 'string' && /^\d+$/.test(x) ? BigInt(x) : x));
+    // Confirmation hash bound to the exact bytes: short hash of target + calldata.
+    const data = ifaceFor(pr).encodeFunctionData(pr.fn, args);
+    pr.confirmHash = ethers.keccak256(ethers.concat([pr.to, data])).slice(2, 12);
     try {
       const sim = await simulate(p, from, pr.to, ifaceFor(pr), pr.fn, args);
       pr.simOk = true; pr.gasEstimate = sim.gas ? sim.gas.toString() : null;
@@ -439,15 +467,16 @@ function printPlan(plan, s) {
   for (const pr of plan.proposals) {
     console.log(`\n${pr.id} [${pr.signer}] ${pr.describe}`);
     console.log(`   target ${pr.to} | ${pr.fn}(${pr.args.join(', ')})`);
+    console.log(`   confirm hash: ${pr.confirmHash}`);
     if (pr.simOk) console.log(`   simulation OK | gas ~${pr.gasEstimate || '?'} | max fee ~${pr.feeEstimateEth || '?'} ETH`);
     else console.log(`   SIMULATION FAILED: ${pr.simError} — do not execute, investigate first.`);
   }
   if (plan.notes.length) { console.log(`\nNotes:`); for (const n of plan.notes) console.log(`- ${n}`); }
-  console.log(`\nExecute only after explicit operator confirmation for a specific ID: node agent.js execute <id> --confirm GAS`);
+  console.log(`\nExecute only after explicit operator confirmation of the hash shown for that ID: node agent.js execute <id> --confirm <hash>`);
 }
 
-// ---------- Execute (one tx, only with --confirm GAS) ----------
-async function executeProposal(p, proposalId) {
+// ---------- Execute (one tx, only with --confirm <hash>) ----------
+async function executeProposal(p, proposalId, confirmHash) {
   const planPath = path.join(HERE, 'runs', 'latest-plan.json');
   if (!fs.existsSync(planPath)) throw new Error('no plan yet. Run: node agent.js plan');
   const plan = JSON.parse(fs.readFileSync(planPath, 'utf8'));
@@ -456,6 +485,16 @@ async function executeProposal(p, proposalId) {
   const pr = plan.proposals.find((x) => x.id === proposalId);
   if (!pr) throw new Error(`proposal ${proposalId} is not in the latest plan.`);
   if (!pr.simOk) throw new Error(`proposal ${proposalId} failed simulation at plan time — refusing to execute.`);
+
+  // Confirmation is bound to the reviewed bytes: recompute the short hash of
+  // (target + calldata) from the stored proposal BEFORE any key is loaded,
+  // and refuse unless it matches both the plan's hash and the operator's.
+  const abiEarly = pr.kind === 'ACTIVATE_STRATEGY' ? FACTORY_ABI : pr.kind === 'DEPLOY' || pr.kind === 'RECALL' ? VAULT_ABI : (pr.kind === 'SUPPLY' || pr.kind === 'COLLECT_YIELD_MORPHO') ? MORPHO_ABI : LP_ABI;
+  const argsEarly = pr.args.map((x) => (typeof x === 'string' && /^\d+$/.test(x) ? BigInt(x) : x));
+  const dataEarly = new ethers.Interface(abiEarly).encodeFunctionData(pr.fn, argsEarly);
+  const recomputed = ethers.keccak256(ethers.concat([pr.to, dataEarly])).slice(2, 12);
+  if (recomputed !== pr.confirmHash) throw new Error(`confirmation hash mismatch: stored proposal encodes to ${recomputed}, plan recorded ${pr.confirmHash} — the proposal changed since plan. Re-run plan and confirm the new hash.`);
+  if (String(confirmHash).toLowerCase() !== recomputed) throw new Error(`confirmation refused: --confirm ${confirmHash} does not match proposal ${pr.id}'s hash ${recomputed}. Confirm the exact hash shown by plan for this proposal.`);
 
   const keyPath = pr.signer === 'admin' ? CFG.adminKeyPath : CFG.executorKeyPath;
   const expected = pr.signer === 'admin' ? CFG.adminWallet : CFG.executorWallet;
@@ -475,6 +514,12 @@ async function executeProposal(p, proposalId) {
   const gasEst = await p.estimateGas({ to: pr.to, from: wallet.address, data });
   const gasLimit = (gasEst * BigInt(CFG.gas.gasLimitMultiplierBps)) / 10000n;
   const maxFee = BigInt(CFG.gas.maxFeePerGasWei);
+  // Refuse to broadcast into a fee spike above the cap: the tx would sit
+  // stuck. Raise CFG.gas.maxFeePerGasWei deliberately instead.
+  const feeData = await p.getFeeData();
+  if (feeData.gasPrice && feeData.gasPrice > maxFee) {
+    throw new Error(`live gas price ${ethers.formatUnits(feeData.gasPrice, 'gwei')} gwei exceeds the configured cap ${ethers.formatUnits(maxFee, 'gwei')} gwei — refusing to broadcast. Raise gas.maxFeePerGasWei in config if this is intentional.`);
+  }
   const bal = await p.getBalance(wallet.address);
   const need = gasLimit * maxFee;
   if (bal < need) throw new Error(`signer balance ${fmt(bal, ETH_DEC)} ETH < max gas needed ${fmt(need, ETH_DEC)} ETH — top up first.`);
@@ -525,16 +570,16 @@ async function main() {
     console.log(`Plan saved: runs/latest-plan.json (valid ${CFG.policy.planMaxAgeSeconds / 60} minutes for execute).`);
   } else if (cmd === 'execute') {
     const id = process.argv[3];
-    const confirm = process.argv.includes('--confirm') && process.argv[process.argv.indexOf('--confirm') + 1] === 'GAS';
-    if (!id) throw new Error('usage: node agent.js execute <id> --confirm GAS');
-    if (!confirm) throw new Error('refused: execute needs --confirm GAS (explicit operator confirmation for this proposal).');
-    await executeProposal(p, id);
+    const confirmHash = process.argv.includes('--confirm') ? process.argv[process.argv.indexOf('--confirm') + 1] : null;
+    if (!id) throw new Error('usage: node agent.js execute <id> --confirm <hash>');
+    if (!confirmHash) throw new Error('refused: execute needs --confirm <hash> (the short hash plan printed for this proposal — explicit operator confirmation bound to the reviewed bytes).');
+    await executeProposal(p, id, confirmHash);
   } else if (cmd === 'recall-preview') {
     const [, , , vault, strategy, sym, amount] = process.argv;
     if (!vault || !strategy || !sym || !amount) throw new Error('usage: node agent.js recall-preview <vault> <strategy> <ETH|USDG> <amount>');
     await recallPreview(p, vault, strategy, sym, amount);
   } else {
-    console.log(`Quiver Executor Agent\n  node agent.js status\n  node agent.js plan\n  node agent.js execute <id> --confirm GAS\n  node agent.js recall-preview <vault> <strategy> <ETH|USDG> <amount>`);
+    console.log(`Quiver Executor Agent\n  node agent.js status\n  node agent.js plan\n  node agent.js execute <id> --confirm <hash>\n  node agent.js recall-preview <vault> <strategy> <ETH|USDG> <amount>`);
   }
 }
 
