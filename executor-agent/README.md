@@ -1,74 +1,103 @@
 # Quiver Executor Agent
 
-Onchain executor assistant for Quiver on Robinhood Chain (4663). It monitors
-every Quiver vault and strategy, plans the executor actions that are due,
-simulates each one, and executes **exactly one transaction per explicit
-operator confirmation**. It never broadcasts on its own and never holds user
-funds — vault withdrawals and yield claims stay owner-only in the contracts.
+Agent onchain untuk Quiver (Robinhood Chain 4663): memantau semua vault dan
+strategi, menyusun aksi executor yang jatuh tempo, mensimulasikan semuanya,
+dan mengeksekusi **satu transaksi per konfirmasi eksplisit febri ("gas")**.
+Agent ini tidak pernah broadcast sendiri dan tidak pernah memegang dana user —
+withdraw dan claim yield tetap owner-only di kontrak.
 
-Built 2026-11-27. Shared here for public review (incl. HEY Research Lab)
-before the v6 activation on Sunday 29 Nov 2026.
+Dibangun 2026-11-27 atas pilihan febri ("Gas Quiver Executor Agent").
 
-## Usage
+## Cara pakai
 
 ```bash
-cd executor-agent
-npm install                 # ethers
-cp config.example.json config.json   # then set local key paths (never commit keys)
-node agent.js status        # live read-only report (v1 + v6), loads no keys
-node agent.js plan          # proposals + simulation for each, saved to runs/latest-plan.json
-node agent.js execute P1 --confirm GAS   # ONE proposal, only after explicit confirmation
+cd ~/workspace/quiver-executor-agent
+npm install          # sekali saja (ethers)
+node agent.js status # laporan live read-only (v1 + v6), tanpa kunci
+node agent.js plan   # proposal + simulasi, tersimpan ke runs/latest-plan.json
+node agent.js execute P1 --confirm GAS   # SATU proposal, hanya setelah febri bilang gas
 node agent.js recall-preview <vault> <strategy> <ETH|USDG> <amount>
 ```
 
-A plan stays valid for 30 minutes; `execute` refuses stale plans, re-simulates
-immediately before broadcast, and stops on any drift.
+Alur normal dengan cil di chat: cil menjalankan `plan`, menunjukkan preview
+(ID, target, jumlah, gas, hasil simulasi) ke febri, febri menjawab "gas"
+untuk ID tertentu, cil menjalankan `execute <id> --confirm GAS`, lalu
+melaporkan hash + gas + saldo. Plan berlaku 30 menit; lewat dari itu
+`execute` menolak dan minta plan ulang.
 
-## What it plans
+## Yang direncanakan agent
 
-- **Activation (admin):** `executeStrategyApproval` for the v6 Morpho + LP
-  strategies once their timelock elapses.
-- **Deploy (executor):** idle vault capital up to each vault's profile cap
-  (USDG → Morpho, ETH → LP), only into factory-approved strategies.
-- **Supply (executor):** sweep idle USDG in MorphoStrategy into Steakhouse.
-- **Mint LP (executor):** one full-range position from unminted principal,
-  99.6% minimums (the contract enforces a 99.5% floor).
-- **Collect (executor):** LP fees and Morpho/LP yield to the executor wallet.
-  Settlement into per-vault yield reserves (`fundYield` + `creditYield`) is
-  **never** auto-planned — strategies are pooled and per-vault attribution is
-  an operator decision.
-- **Recall:** never auto-proposed; preview only on explicit instruction with
-  vault + strategy + token + amount.
+- **Aktivasi v6 (admin):** `executeStrategyApproval` untuk Morpho + LP begitu
+  timelock lewat (Minggu 29 Nov 2026 ~02:34 WIB).
+- **Deploy (executor):** kapital idle vault sampai batas profilnya
+  (USDG → Morpho, ETH → LP), hanya ke strategi yang sudah approved.
+- **Supply (executor):** sweep USDG idle di MorphoStrategy ke Steakhouse.
+- **Mint LP (executor):** satu posisi full-range dari unminted principal,
+  minimum 99,6% (kontrak memaksa lantai 99,5%).
+- **Collect (executor):** fees LP dan yield Morpho/LP ke executor wallet.
+  Settlement ke reserve tiap vault (fundYield + creditYield) **tidak**
+  diotomatiskan — strategi bersifat pooled dan atribusi per-vault adalah
+  keputusan febri.
+- **Recall:** tidak pernah diusulkan otomatis; hanya preview atas instruksi
+  eksplisit dengan vault + strategi + token + jumlah.
 
-## Safety model (enforced in code)
+## Rel keamanan (ditegakkan di kode)
 
-- `status`/`plan` never load a private key; simulation uses `eth_call` from
-  the known admin/executor addresses.
-- `execute` loads exactly one key file (admin or executor, per action),
-  verifies the signer address, chain id 4663, target contract code, and gas
-  balance, then sends one transaction with pinned fees (maxFee 0.025 gwei,
-  gasLimit = estimate × 1.3).
-- All v1 LPStrategy writes are hard-blocked by standing instruction.
-- Owner-only functions (vault `withdraw` / `claimYield` / `setClaimSchedule`)
-  are never called; the agent only reports claim-due status.
-- Keys are never printed, logged, or copied. `config.json`, `keys/`, `runs/`
-  and `node_modules/` are git-ignored.
+- `status`/`plan` tidak memuat private key sama sekali; simulasi memakai
+  `eth_call` dari alamat admin/executor yang dikenal.
+- `execute` memuat tepat satu file kunci yang sudah ada
+  (`quiver-admin/deployer.key` untuk admin, `quiver-admin/executor.key`
+  untuk executor, keduanya mode 600), memverifikasi alamat signer,
+  mensimulasi ulang, mengecek chain id 4663 + kode kontrak + saldo gas,
+  lalu mengirim satu tx dengan fee terpaku (maxFee 0,025 gwei, gasLimit
+  estimasi ×1,3 — pola yang sama dengan skrip quiver-admin).
+- Semua write LPStrategy **v1** diblokir keras (instruksi tetap febri).
+- Fungsi owner-only tidak pernah dipanggil; agent hanya melaporkan status
+  claim-due.
+- Kunci tidak pernah dicetak, dicatat, atau disalin ke folder agent.
 
-## Live state when built (2026-11-27 11:12 WIB, block 123,979,707)
+## State live saat dibangun (2026-11-27 11:12 WIB, block 123.979.707)
 
-- v6 factory `0xee7f6607aaBb3E62F1Eee7143Cc52AEC93472369`: 0 vaults; Morpho
-  `0x8070A912be3E5ed7a92ee98739E1a223c07551A5` and LP
-  `0x265F9cfF1fdf2Bf396e3e15Cc6bb3ac8cF09c8Cd` proposed, ETA Sun 29 Nov 2026
-  02:34 WIB.
-- v1 factory `0x681eE15f4c271143dAbf4a752eAaecB7F015A2E9`: 3 vaults, all
-  deposits-paused, principal 0 except bookkeeping dust in the test vault.
-- Tested read-only: `status` matches independent manual reads; `plan`
-  correctly proposes nothing while the timelock runs; `execute` guards refuse
-  without `--confirm GAS` or for unknown proposal ids.
+- v6 factory `0xee7f6607…72369`: 0 vault, Morpho `0x8070A912…51A5` dan LP
+  `0x265F9cfF…c8Cd` belum approved, ETA Minggu 29 Nov 2026 02:34 WIB.
+- v1 factory `0x681eE15f…15A2E9`: 3 vault semua deposits-paused, principal 0
+  kecuali debu bookkeeping di vault tes. Vault febri `0x460D11bA…F486` sudah
+  0 (0,01 ETH-nya sudah ditarik sendiri oleh febri).
+- Executor `0x28D227Eb…6221`: 0,0001 ETH. Admin/control
+  `0x0d6fa82F…fE8`: 0,000498 ETH.
 
-## Files
+## Runbook aktivasi Minggu 29 Nov
 
-- `agent.js` — CLI (status / plan / execute / recall-preview)
-- `config.example.json` — addresses, policy thresholds, key-path placeholders
-- `status.html` — single-file read-only dashboard (browser RPC reads, no keys)
-- `package.json` — ethers dependency
+1. Setelah 02:34 WIB: `node agent.js plan` → harus muncul 2 proposal
+   ACTIVATE_STRATEGY (admin) dengan simulasi OK.
+2. Febri "gas" satu per satu → `execute P1`, lalu plan ulang, `execute P2`.
+3. Site switch ke v6 hanya atas perintah febri (di luar agent ini).
+4. Setelah site pindah dan ada deposit: `plan` akan mengusulkan deploy →
+   supply/mint; eksekusi satu per satu dengan "gas" seperti biasa.
+5. Revoke approval v1 + pause v1 menyusul sesuai rencana HeyResearch —
+   langkah admin terpisah, bukan bagian plan otomatis agent.
+
+## File
+
+- `agent.js` — CLI agent (status/plan/execute/recall-preview)
+- `config.json` — alamat, ambang kebijakan, path kunci (tanpa nilai kunci)
+- `status.html` — dashboard read-only satu file (baca RPC langsung dari
+  browser; deploy hanya atas perintah febri)
+- `runs/` — plan terakhir + log eksekusi per tx
+
+## HEY Research Lab integration
+
+`status` also reads Quiver's public record on HEY Research Lab
+(heyresearch.xyz) so the on-chain view can be compared with what HEY has
+recorded. Every HEY call sends the integration header:
+
+```
+x-hey-integration: quiver-executor/1.0.0
+```
+
+Endpoints read (public, no key, read-only):
+
+- `GET /api/token/4663/<QUIV contract>` — token to project record
+- `GET /api/projects/quiver-aca79a/snapshot` — one-read project state
+
+The read fails soft: if HEY is unreachable, the on-chain status still prints.
