@@ -124,7 +124,7 @@ function fmt(raw, dec) { return ethers.formatUnits(raw, dec); }
 function decFor(token) { return token === ZERO ? ETH_DEC : USDG_DEC; }
 function symFor(token) { return token === ZERO ? 'ETH' : 'USDG'; }
 function short(a) { return a.slice(0, 6) + '…' + a.slice(-4); }
-function wib(tsSec) {
+function utc(tsSec) {
   return new Date(tsSec * 1000).toLocaleString('en-US', { timeZone: 'UTC', hour12: true }) + ' UTC';
 }
 function parseAmt(s, dec) { return ethers.parseUnits(String(s), dec); }
@@ -222,7 +222,7 @@ async function readAll(p) {
 
 function printStatus(s) {
   console.log(`Quiver Executor Agent — status live`);
-  console.log(`Block ${s.block} | ${wib(s.ts)} | gas ~${ethers.formatUnits(s.gasPrice || 0n, 'gwei')} gwei`);
+  console.log(`Block ${s.block} | ${utc(s.ts)} | gas ~${ethers.formatUnits(s.gasPrice || 0n, 'gwei')} gwei`);
   console.log(`Admin    ${CFG.adminWallet} : ${fmt(s.adminBal, ETH_DEC)} ETH`);
   console.log(`Executor ${CFG.executorWallet} : ${fmt(s.execBal, ETH_DEC)} ETH`);
   if (s.execBal < parseAmt(CFG.policy.lowGasWarnEth, ETH_DEC)) {
@@ -235,7 +235,7 @@ function printStatus(s) {
       let extra = '';
       if (!a.approved && a.eta !== null && a.eta !== 0n) {
         const etaN = Number(a.eta);
-        extra = etaN <= s.ts ? ` | timelock LEWAT (${wib(etaN)}) — siap executeStrategyApproval` : ` | timelock sampai ${wib(etaN)}`;
+        extra = etaN <= s.ts ? ` | timelock PASSED (${utc(etaN)}) — ready for executeStrategyApproval` : ` | timelocked until ${utc(etaN)}`;
       }
       console.log(`  ${sName} ${a.address} approved=${a.approved}${extra}`);
     }
@@ -345,10 +345,10 @@ async function buildPlan(p, s) {
           add({
             kind: 'ACTIVATE_STRATEGY', signer: 'admin', factoryKey: f.key, to: f.cfg.factory,
             fn: 'executeStrategyApproval', args: [a.address],
-            describe: `[${f.key}] Activate strategy ${sName} ${a.address} (timelock passed ${wib(Number(a.eta))})`
+            describe: `[${f.key}] Activate strategy ${sName} ${a.address} (timelock passed ${utc(Number(a.eta))})`
           });
         } else {
-          notes.push(`[${f.key}] ${sName}: approval still timelocked until ${wib(Number(a.eta))} — cannot be activated yet.`);
+          notes.push(`[${f.key}] ${sName}: approval still timelocked until ${utc(Number(a.eta))} — cannot be activated yet.`);
         }
       }
     }
@@ -462,7 +462,7 @@ async function buildPlan(p, s) {
 }
 
 function printPlan(plan, s) {
-  console.log(`Quiver Executor Agent — plan (block ${s.block}, ${wib(s.ts)})`);
+  console.log(`Quiver Executor Agent — plan (block ${s.block}, ${utc(s.ts)})`);
   if (plan.proposals.length === 0) console.log(`No executor actions are due right now.`);
   for (const pr of plan.proposals) {
     console.log(`\n${pr.id} [${pr.signer}] ${pr.describe}`);
