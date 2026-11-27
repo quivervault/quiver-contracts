@@ -43,7 +43,7 @@
   "hey": {
     "apiBase": "https://heyresearch.xyz/api",
     "integration": "quiver-executor/1.0.0",
-    "projectSlug": "quiver-aca79a",
+    "projectSlug": "quivervault",
     "quivToken": "0xaca79ade982d8e90117ff072dd7e016c115cf130",
     "timeoutMs": 15000
   }
