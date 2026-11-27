@@ -4,12 +4,12 @@
  *
  * What it is: the onchain executor assistant for Quiver. It monitors every
  * Quiver vault + strategy, plans the executor actions that are due, simulates
- * each one, and shows febri a human-readable preview. It broadcasts NOTHING
+ * each one, and shows the operator a human-readable preview. It broadcasts NOTHING
  * on its own: `execute` runs exactly ONE previewed action and only with
- * `--confirm GAS` (febri's "gas" in chat). Every state-changing call is
+ * `--confirm GAS` (the operator's explicit confirmation). Every state-changing call is
  * simulated first (eth_call); if simulation reverts, the agent stops.
  *
- * Safety model (febri's rails, enforced in code):
+ * Safety model (enforced in code):
  *  - status/plan NEVER load a private key. Previews simulate with eth_call
  *    `from` = the known admin/executor address.
  *  - execute loads exactly one key file (admin OR executor, per action),
@@ -21,7 +21,7 @@
  *    collectFees/collectYield/rebalance/mint/swap on the live v1 LP).
  *  - Yield settlement into per-vault reserves (fundYield + creditYield) is
  *    NEVER auto-planned: strategies are pooled and per-vault attribution is
- *    febri's decision. Collect proposals stop at the executor wallet.
+ *    a human decision. Collect proposals stop at the executor wallet.
  *  - Keys are read from the existing quiver-admin key files (mode 600) and
  *    are never printed, logged, or copied.
  *
@@ -213,7 +213,7 @@ function printStatus(s) {
   console.log(`Admin    ${CFG.adminWallet} : ${fmt(s.adminBal, ETH_DEC)} ETH`);
   console.log(`Executor ${CFG.executorWallet} : ${fmt(s.execBal, ETH_DEC)} ETH`);
   if (s.execBal < parseAmt(CFG.policy.lowGasWarnEth, ETH_DEC)) {
-    console.log(`  PERINGATAN: saldo gas executor di bawah ${CFG.policy.lowGasWarnEth} ETH — top-up sebelum banyak eksekusi.`);
+    console.log(`  WARNING: executor gas balance below ${CFG.policy.lowGasWarnEth} ETH — top up before running many executions.`);
   }
   for (const f of Object.values(s.factories)) {
     console.log(`\n=== ${f.key.toUpperCase()} factory ${f.cfg.factory} ===`);
@@ -226,21 +226,21 @@ function printStatus(s) {
       }
       console.log(`  ${sName} ${a.address} approved=${a.approved}${extra}`);
     }
-    console.log(`  Morpho: posisi ${fmt(f.morpho.positionValue, USDG_DEC)} USDG | yield terakumulasi ${fmt(f.morpho.accruedYield, USDG_DEC)} USDG | idle ${fmt(f.morpho.idleUsdg, USDG_DEC)} USDG | supplyPaused=${f.morpho.paused}`);
-    console.log(`  LP: tokenId=${f.lp.tokenId.toString()} | unminted ${fmt(f.lp.unminted0, ETH_DEC)} WETH/ETH + ${fmt(f.lp.unminted1, USDG_DEC)} USDG | fee belum settle ${fmt(f.lp.fee0, ETH_DEC)} + ${fmt(f.lp.fee1, USDG_DEC)} USDG | mintPaused=${f.lp.paused}`);
-    if (f.lp.tokenId !== 0n) console.log(`      posisi: likuiditas ${f.lp.liquidity.toString()} | fees belum di-collect ${fmt(f.lp.owed0, ETH_DEC)} + ${fmt(f.lp.owed1, USDG_DEC)} USDG`);
+    console.log(`  Morpho: position ${fmt(f.morpho.positionValue, USDG_DEC)} USDG | accrued yield ${fmt(f.morpho.accruedYield, USDG_DEC)} USDG | idle ${fmt(f.morpho.idleUsdg, USDG_DEC)} USDG | supplyPaused=${f.morpho.paused}`);
+    console.log(`  LP: tokenId=${f.lp.tokenId.toString()} | unminted ${fmt(f.lp.unminted0, ETH_DEC)} WETH/ETH + ${fmt(f.lp.unminted1, USDG_DEC)} USDG | unsettled fees ${fmt(f.lp.fee0, ETH_DEC)} + ${fmt(f.lp.fee1, USDG_DEC)} USDG | mintPaused=${f.lp.paused}`);
+    if (f.lp.tokenId !== 0n) console.log(`      position: liquidity ${f.lp.liquidity.toString()} | uncollected fees ${fmt(f.lp.owed0, ETH_DEC)} + ${fmt(f.lp.owed1, USDG_DEC)} USDG`);
     console.log(`  Vault (${f.vaults.length}):`);
-    if (f.vaults.length === 0) console.log(`    (belum ada vault — site belum pindah ke factory ini)`);
+    if (f.vaults.length === 0) console.log(`    (no vaults yet — the site has not moved to this factory)`);
     for (const v of f.vaults) {
-      console.log(`    ${v.address} owner=${short(v.owner)} profil=${PROFILES[v.profile]}(${v.capBps}bps) paused=${v.paused} claimDue=${v.claimDue}`);
+      console.log(`    ${v.address} owner=${short(v.owner)} profile=${PROFILES[v.profile]}(${v.capBps}bps) paused=${v.paused} claimDue=${v.claimDue}`);
       for (const [sym, a] of Object.entries(v.assets)) {
         const dec = decFor(a.token);
         if (a.principal === 0n && a.deployed === 0n && a.accrued === 0n) continue;
-        console.log(`      ${sym}: principal ${fmt(a.principal, dec)} | deployed ${fmt(a.deployed, dec)} | free ${fmt(a.free, dec)} | bisa deploy ${fmt(a.deployable, dec)} | yield accrued ${fmt(a.accrued, dec)} (reserve ${fmt(a.reserve, dec)})`);
+        console.log(`      ${sym}: principal ${fmt(a.principal, dec)} | deployed ${fmt(a.deployed, dec)} | free ${fmt(a.free, dec)} | deployable ${fmt(a.deployable, dec)} | yield accrued ${fmt(a.accrued, dec)} (reserve ${fmt(a.reserve, dec)})`);
       }
     }
   }
-  console.log(`\nCatatan: status ini read-only. Jalankan "plan" untuk proposal + simulasi.`);
+  console.log(`\nNote: this status is read-only. Run "plan" for proposals + simulations.`);
 }
 
 // ---------- HEY Research Lab record (read-only) ----------
@@ -270,9 +270,9 @@ async function printHey() {
   try {
     const token = await heyGet(`/token/4663/${CFG.hey.quivToken}`);
     const proj = token.project || {};
-    console.log(`Proyek: ${proj.name || '?'} ($${proj.symbol || '?'}) | ${proj.url || ''}`);
-    console.log(`Status aktivitas: ${proj.activityStatus || '?'} — ${proj.activityLabel || ''}`);
-    console.log(`Research level: ${proj.researchLevel || '?'} | ships 30 hari: ${proj.shipsLast30Days ?? '?'} | aktivitas terukur: ${proj.activityMeasured ?? '?'}`);
+    console.log(`Project: ${proj.name || '?'} ($${proj.symbol || '?'}) | ${proj.url || ''}`);
+    console.log(`Activity status: ${proj.activityStatus || '?'} — ${proj.activityLabel || ''}`);
+    console.log(`Research level: ${proj.researchLevel || '?'} | ships last 30 days: ${proj.shipsLast30Days ?? '?'} | activity measured: ${proj.activityMeasured ?? '?'}`);
     if (proj.deployedAt) console.log(`Token deployed: ${proj.deployedAt}`);
     const snap = await heyGet(`/projects/${CFG.hey.projectSlug}/snapshot`).catch(() => null);
     if (snap && snap.project) {
@@ -282,7 +282,7 @@ async function printHey() {
     }
     console.log(`Badge: ${proj.badgeUrl || `https://heyresearch.xyz/badge/${CFG.hey.projectSlug}.svg`}`);
   } catch (e) {
-    console.log(`(HEY tidak terjangkau sekarang: ${e.message} — status on-chain di atas tetap berlaku.)`);
+    console.log(`(HEY unreachable right now: ${e.message} — the on-chain status above still stands.)`);
   }
 }
 
@@ -324,10 +324,10 @@ async function buildPlan(p, s) {
           add({
             kind: 'ACTIVATE_STRATEGY', signer: 'admin', factoryKey: f.key, to: f.cfg.factory,
             fn: 'executeStrategyApproval', args: [a.address],
-            describe: `[${f.key}] Aktifkan strategi ${sName} ${a.address} (timelock lewat ${wib(Number(a.eta))})`
+            describe: `[${f.key}] Activate strategy ${sName} ${a.address} (timelock passed ${wib(Number(a.eta))})`
           });
         } else {
-          notes.push(`[${f.key}] ${sName}: approval masih timelock sampai ${wib(Number(a.eta))} — belum bisa diaktifkan.`);
+          notes.push(`[${f.key}] ${sName}: approval still timelocked until ${wib(Number(a.eta))} — cannot be activated yet.`);
         }
       }
     }
@@ -339,20 +339,20 @@ async function buildPlan(p, s) {
         if (a.deployable < min) continue;
         const target = sym === 'USDG' ? 'morpho' : 'lp';
         if (!f.approvals[target].approved) {
-          notes.push(`[${f.key}] vault ${short(v.address)} punya ${fmt(a.deployable, decFor(a.token))} ${sym} siap deploy, tapi strategi ${target} belum approved — tunggu aktivasi.`);
+          notes.push(`[${f.key}] vault ${short(v.address)} has ${fmt(a.deployable, decFor(a.token))} ${sym} ready to deploy, but strategy ${target} is not approved yet — wait for activation.`);
           continue;
         }
         add({
           kind: 'DEPLOY', signer: 'executor', factoryKey: f.key, to: v.address,
           fn: 'deployToStrategy', args: [f.cfg[target], a.token, a.deployable.toString()],
-          describe: `[${f.key}] Deploy ${fmt(a.deployable, decFor(a.token))} ${sym} dari vault ${v.address} (owner ${short(v.owner)}, ${PROFILES[v.profile]}) ke ${target} ${f.cfg[target]}`
+          describe: `[${f.key}] Deploy ${fmt(a.deployable, decFor(a.token))} ${sym} from vault ${v.address} (owner ${short(v.owner)}, ${PROFILES[v.profile]}) to ${target} ${f.cfg[target]}`
         });
       }
     }
 
     // C. Morpho supply sweep (executor).
     if (f.morpho.idleUsdg >= minSupply) {
-      if (f.morpho.paused) notes.push(`[${f.key}] Morpho idle ${fmt(f.morpho.idleUsdg, USDG_DEC)} USDG tapi supplyPaused=true — supply tidak diusulkan.`);
+      if (f.morpho.paused) notes.push(`[${f.key}] Morpho idle ${fmt(f.morpho.idleUsdg, USDG_DEC)} USDG but supplyPaused=true — supply not proposed.`);
       else add({
         kind: 'SUPPLY', signer: 'executor', factoryKey: f.key, to: f.cfg.morpho, fn: 'supply', args: [],
         describe: `[${f.key}] Supply ${fmt(f.morpho.idleUsdg, USDG_DEC)} USDG idle di MorphoStrategy ke Steakhouse Morpho vault`
@@ -364,18 +364,18 @@ async function buildPlan(p, s) {
       add({
         kind: 'COLLECT_YIELD_MORPHO', signer: 'executor', factoryKey: f.key, to: f.cfg.morpho,
         fn: 'collectYield', args: [CFG.executorWallet, f.morpho.accruedYield.toString()],
-        describe: `[${f.key}] Collect yield Morpho ${fmt(f.morpho.accruedYield, USDG_DEC)} USDG ke executor wallet (settle ke vault = langkah manual terpisah)`
+        describe: `[${f.key}] Collect yield Morpho ${fmt(f.morpho.accruedYield, USDG_DEC)} USDG ke executor wallet (settle to vault = langkah manual terpisah)`
       });
     }
 
     // E. LP actions (executor) — v1 writes hard-blocked by standing instruction.
     if (f.cfg.lpWritesBlocked) {
       if (f.lp.tokenId !== 0n || f.lp.fee0 > 0n || f.lp.fee1 > 0n) {
-        notes.push(`[${f.key}] LP punya state aktif tapi SEMUA write LP v1 diblokir instruksi tetap — tidak ada proposal LP.`);
+        notes.push(`[${f.key}] LP has active state but ALL v1 LP writes are hard-blocked — no LP proposals.`);
       }
     } else {
       if (f.lp.tokenId === 0n && (f.lp.unminted0 >= minDeployEth || f.lp.unminted1 >= minDeployUsdg)) {
-        if (f.lp.paused) notes.push(`[${f.key}] LP ada unminted tapi mintPaused=true — mint tidak diusulkan.`);
+        if (f.lp.paused) notes.push(`[${f.key}] LP has unminted funds but mintPaused=true — mint not proposed.`);
         else {
           const lpC = new ethers.Contract(f.cfg.lp, LP_ABI, p);
           const poolAddr = await lpC.pool();
@@ -389,28 +389,28 @@ async function buildPlan(p, s) {
           add({
             kind: 'MINT_LP', signer: 'executor', factoryKey: f.key, to: f.cfg.lp,
             fn: 'mint', args: [lower, upper, amt0.toString(), amt1.toString(), min0.toString(), min1.toString()],
-            describe: `[${f.key}] Mint LP full-range [${lower}, ${upper}] dengan ${fmt(amt0, ETH_DEC)} WETH/ETH + ${fmt(amt1, USDG_DEC)} USDG (min ${(100 - pol.mintSlippageBps / 100)}%)`
+            describe: `[${f.key}] Mint LP full-range [${lower}, ${upper}] with ${fmt(amt0, ETH_DEC)} WETH/ETH + ${fmt(amt1, USDG_DEC)} USDG (min ${(100 - pol.mintSlippageBps / 100)}%)`
           });
         }
       }
       if (f.lp.tokenId !== 0n && (f.lp.owed0 > 0n || f.lp.owed1 > 0n)) {
         add({
           kind: 'COLLECT_FEES_LP', signer: 'executor', factoryKey: f.key, to: f.cfg.lp, fn: 'collectFees', args: [],
-          describe: `[${f.key}] Collect fees LP posisi #${f.lp.tokenId.toString()} (belum di-collect ~${fmt(f.lp.owed0, ETH_DEC)} + ${fmt(f.lp.owed1, USDG_DEC)} USDG)`
+          describe: `[${f.key}] Collect fees from LP position #${f.lp.tokenId.toString()} (uncollected ~${fmt(f.lp.owed0, ETH_DEC)} + ${fmt(f.lp.owed1, USDG_DEC)} USDG)`
         });
       }
       if (f.lp.fee1 >= minCollectUsdg) {
         add({
           kind: 'COLLECT_YIELD_LP', signer: 'executor', factoryKey: f.key, to: f.cfg.lp,
           fn: 'collectYield', args: [CFG.usdg, CFG.executorWallet, f.lp.fee1.toString()],
-          describe: `[${f.key}] Collect yield LP ${fmt(f.lp.fee1, USDG_DEC)} USDG ke executor wallet (settle ke vault = langkah manual terpisah)`
+          describe: `[${f.key}] Collect yield LP ${fmt(f.lp.fee1, USDG_DEC)} USDG ke executor wallet (settle to vault = langkah manual terpisah)`
         });
       }
       if (f.lp.fee0 >= minCollectEth) {
         add({
           kind: 'COLLECT_YIELD_LP', signer: 'executor', factoryKey: f.key, to: f.cfg.lp,
           fn: 'collectYield', args: [ZERO, CFG.executorWallet, f.lp.fee0.toString()],
-          describe: `[${f.key}] Collect yield LP ${fmt(f.lp.fee0, ETH_DEC)} ETH ke executor wallet (settle ke vault = langkah manual terpisah)`
+          describe: `[${f.key}] Collect yield LP ${fmt(f.lp.fee0, ETH_DEC)} ETH ke executor wallet (settle to vault = langkah manual terpisah)`
         });
       }
     }
@@ -435,27 +435,27 @@ async function buildPlan(p, s) {
 
 function printPlan(plan, s) {
   console.log(`Quiver Executor Agent — plan (block ${s.block}, ${wib(s.ts)})`);
-  if (plan.proposals.length === 0) console.log(`Tidak ada aksi executor yang jatuh tempo sekarang.`);
+  if (plan.proposals.length === 0) console.log(`No executor actions are due right now.`);
   for (const pr of plan.proposals) {
     console.log(`\n${pr.id} [${pr.signer}] ${pr.describe}`);
     console.log(`   target ${pr.to} | ${pr.fn}(${pr.args.join(', ')})`);
-    if (pr.simOk) console.log(`   simulasi OK | gas ~${pr.gasEstimate || '?'} | fee maks ~${pr.feeEstimateEth || '?'} ETH`);
-    else console.log(`   SIMULASI GAGAL: ${pr.simError} — jangan eksekusi, cek dulu.`);
+    if (pr.simOk) console.log(`   simulation OK | gas ~${pr.gasEstimate || '?'} | max fee ~${pr.feeEstimateEth || '?'} ETH`);
+    else console.log(`   SIMULATION FAILED: ${pr.simError} — do not execute, investigate first.`);
   }
-  if (plan.notes.length) { console.log(`\nCatatan:`); for (const n of plan.notes) console.log(`- ${n}`); }
-  console.log(`\nEksekusi hanya setelah febri bilang "gas" untuk ID tertentu: node agent.js execute <id> --confirm GAS`);
+  if (plan.notes.length) { console.log(`\nNotes:`); for (const n of plan.notes) console.log(`- ${n}`); }
+  console.log(`\nExecute only after explicit operator confirmation for a specific ID: node agent.js execute <id> --confirm GAS`);
 }
 
 // ---------- Execute (one tx, only with --confirm GAS) ----------
 async function executeProposal(p, proposalId) {
   const planPath = path.join(HERE, 'runs', 'latest-plan.json');
-  if (!fs.existsSync(planPath)) throw new Error('belum ada plan. Jalankan: node agent.js plan');
+  if (!fs.existsSync(planPath)) throw new Error('no plan yet. Run: node agent.js plan');
   const plan = JSON.parse(fs.readFileSync(planPath, 'utf8'));
   const age = Math.floor(Date.now() / 1000) - plan.createdAt;
-  if (age > CFG.policy.planMaxAgeSeconds) throw new Error(`plan sudah ${age} detik (maks ${CFG.policy.planMaxAgeSeconds}). Jalankan plan ulang supaya preview segar.`);
+  if (age > CFG.policy.planMaxAgeSeconds) throw new Error(`plan is ${age} seconds old (max ${CFG.policy.planMaxAgeSeconds}). Re-run plan for a fresh preview.`);
   const pr = plan.proposals.find((x) => x.id === proposalId);
-  if (!pr) throw new Error(`proposal ${proposalId} tidak ada di plan terakhir.`);
-  if (!pr.simOk) throw new Error(`proposal ${proposalId} simulasinya gagal saat plan — menolak eksekusi.`);
+  if (!pr) throw new Error(`proposal ${proposalId} is not in the latest plan.`);
+  if (!pr.simOk) throw new Error(`proposal ${proposalId} failed simulation at plan time — refusing to execute.`);
 
   const keyPath = pr.signer === 'admin' ? CFG.adminKeyPath : CFG.executorKeyPath;
   const expected = pr.signer === 'admin' ? CFG.adminWallet : CFG.executorWallet;
@@ -477,36 +477,36 @@ async function executeProposal(p, proposalId) {
   const maxFee = BigInt(CFG.gas.maxFeePerGasWei);
   const bal = await p.getBalance(wallet.address);
   const need = gasLimit * maxFee;
-  if (bal < need) throw new Error(`saldo signer ${fmt(bal, ETH_DEC)} ETH < kebutuhan gas maks ${fmt(need, ETH_DEC)} ETH — top-up dulu.`);
+  if (bal < need) throw new Error(`signer balance ${fmt(bal, ETH_DEC)} ETH < max gas needed ${fmt(need, ETH_DEC)} ETH — top up first.`);
 
-  console.log(`Eksekusi ${pr.id}: ${pr.describe}`);
+  console.log(`Executing ${pr.id}: ${pr.describe}`);
   console.log(`signer ${wallet.address} (${pr.signer}) | gasLimit ${gasLimit.toString()} | maxFee ${ethers.formatUnits(maxFee, 'gwei')} gwei`);
   const tx = await contract[pr.fn](...args, { maxFeePerGas: maxFee, gasLimit });
   console.log(`tx terkirim: ${tx.hash}`);
   const rc = await tx.wait();
   console.log(`status ${rc.status} | block ${rc.blockNumber} | gasUsed ${rc.gasUsed.toString()}`);
   const after = await p.getBalance(wallet.address);
-  console.log(`saldo signer setelah: ${fmt(after, ETH_DEC)} ETH`);
+  console.log(`signer balance after: ${fmt(after, ETH_DEC)} ETH`);
   const log = { at: new Date().toISOString(), proposal: pr, txHash: tx.hash, status: rc.status, block: rc.blockNumber, gasUsed: rc.gasUsed.toString(), signerBalanceAfter: after.toString() };
   fs.writeFileSync(path.join(HERE, 'runs', `exec-${pr.id}-${Date.now()}.json`), JSON.stringify(log, null, 2));
   if (rc.status !== 1) throw new Error('tx revert on-chain — cek log di runs/.');
   return log;
 }
 
-// ---------- Recall preview (explicit febri instruction only) ----------
+// ---------- Recall preview (explicit operator instruction only) ----------
 async function recallPreview(p, vaultAddr, strategyAddr, sym, amountStr) {
   const token = sym.toUpperCase() === 'ETH' ? ZERO : CFG.usdg;
   const dec = decFor(token);
   const amount = parseAmt(amountStr, dec);
   const v = new ethers.Contract(vaultAddr, VAULT_ABI, p);
   const [owner, executor, deployedIn] = await Promise.all([v.owner(), v.executor(), v.deployedIn(strategyAddr, token)]);
-  console.log(`Recall preview: ${amountStr} ${sym} dari strategi ${strategyAddr} ke vault ${vaultAddr}`);
+  console.log(`Recall preview: ${amountStr} ${sym} from strategy ${strategyAddr} to vault ${vaultAddr}`);
   console.log(`owner ${owner} | executor ${executor} | deployedIn strategi ini: ${fmt(deployedIn, dec)} ${sym}`);
   if (amount > deployedIn) throw new Error('jumlah recall melebihi deployedIn — berhenti.');
   const iface = new ethers.Interface(VAULT_ABI);
   const sim = await simulate(p, executor, vaultAddr, iface, 'recallFromStrategy', [strategyAddr, token, amount]);
-  console.log(`simulasi recallFromStrategy dari executor: OK | gas ~${sim.gas ? sim.gas.toString() : '?'}`);
-  console.log(`Ini baru preview. Untuk eksekusi, febri harus konfirmasi jumlah + target secara eksplisit dulu.`);
+  console.log(`recallFromStrategy simulation from executor: OK | gas ~${sim.gas ? sim.gas.toString() : '?'}`);
+  console.log(`This is only a preview. Execution needs explicit operator confirmation of amount + target first.`);
 }
 
 async function main() {
@@ -522,16 +522,16 @@ async function main() {
     fs.mkdirSync(path.join(HERE, 'runs'), { recursive: true });
     const saved = { createdAt: Math.floor(Date.now() / 1000), block: s.block, proposals: plan.proposals, notes: plan.notes };
     fs.writeFileSync(path.join(HERE, 'runs', 'latest-plan.json'), JSON.stringify(saved, null, 2));
-    console.log(`Plan tersimpan: runs/latest-plan.json (berlaku ${CFG.policy.planMaxAgeSeconds / 60} menit untuk execute).`);
+    console.log(`Plan saved: runs/latest-plan.json (valid ${CFG.policy.planMaxAgeSeconds / 60} minutes for execute).`);
   } else if (cmd === 'execute') {
     const id = process.argv[3];
     const confirm = process.argv.includes('--confirm') && process.argv[process.argv.indexOf('--confirm') + 1] === 'GAS';
-    if (!id) throw new Error('pakai: node agent.js execute <id> --confirm GAS');
-    if (!confirm) throw new Error('ditolak: execute butuh --confirm GAS (konfirmasi eksplisit febri untuk proposal ini).');
+    if (!id) throw new Error('usage: node agent.js execute <id> --confirm GAS');
+    if (!confirm) throw new Error('refused: execute needs --confirm GAS (explicit operator confirmation for this proposal).');
     await executeProposal(p, id);
   } else if (cmd === 'recall-preview') {
     const [, , , vault, strategy, sym, amount] = process.argv;
-    if (!vault || !strategy || !sym || !amount) throw new Error('pakai: node agent.js recall-preview <vault> <strategy> <ETH|USDG> <amount>');
+    if (!vault || !strategy || !sym || !amount) throw new Error('usage: node agent.js recall-preview <vault> <strategy> <ETH|USDG> <amount>');
     await recallPreview(p, vault, strategy, sym, amount);
   } else {
     console.log(`Quiver Executor Agent\n  node agent.js status\n  node agent.js plan\n  node agent.js execute <id> --confirm GAS\n  node agent.js recall-preview <vault> <strategy> <ETH|USDG> <amount>`);
