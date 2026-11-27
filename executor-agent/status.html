@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quiver Executor Agent — Live Status</title>
+<style>
+  body{margin:0;font-family:system-ui,sans-serif;background:#0b0e14;color:#e6e6e6}
+  main{max-width:860px;margin:0 auto;padding:20px 16px 40px}
+  h1{font-size:22px;margin:8px 0 2px} .sub{color:#9aa4b2;font-size:13px;margin-bottom:16px}
+  .card{background:#141a24;border:1px solid #26303f;border-radius:12px;padding:14px 16px;margin:12px 0}
+  .card h2{font-size:15px;margin:0 0 8px} .row{display:flex;justify-content:space-between;gap:12px;padding:4px 0;font-size:13px;border-bottom:1px solid #1e2733}
+  .row:last-child{border-bottom:0} .k{color:#9aa4b2} .mono{font-family:ui-monospace,monospace;word-break:break-all;text-align:right}
+  .ok{color:#4ade80} .warn{color:#facc15} button{background:#2563eb;color:#fff;border:0;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer}
+  .foot{color:#9aa4b2;font-size:12px;margin-top:16px;line-height:1.5}
+</style>
+</head>
+<body>
+<main>
+  <h1>Quiver Executor Agent</h1>
+  <div class="sub">Live read-only status from Robinhood Chain. This page holds no keys and cannot transact. <span id="updated"></span></div>
+  <button id="refresh">Refresh</button>
+  <div id="app"><div class="card">Loading live chain data…</div></div>
+  <div class="foot">Quiver vaults are non-custodial: only each vault owner can withdraw or claim yield. The executor can only deploy capped capital to factory-approved strategies. Every executor action is simulated and confirmed before broadcast. quivervault.xyz</div>
+</main>
+<script>
+const RPC='https://rpc.mainnet.chain.robinhood.com';
+const FACTORIES=[
+ {key:'v6 (current)',factory:'0xee7f6607aaBb3E62F1Eee7143Cc52AEC93472369',morpho:'0x8070A912be3E5ed7a92ee98739E1a223c07551A5',lp:'0x265F9cfF1fdf2Bf396e3e15Cc6bb3ac8cF09c8Cd',timelock:true},
+ {key:'v1 (closed)',factory:'0x681eE15f4c271143dAbf4a752eAaecB7F015A2E9',morpho:'0x431A1C73DA1783bFD445aFA8BB062DAB98E589ec',lp:'0x3f7c4d932aC21e4Be6eAD3feee5E51378425814d',timelock:false}
+];
+const SEL={vaultCount:'0xa7c6a100',approved:'0xfae6dcb6',eta:'0x15ada880',posVal:'0x3eef0762',accrued:'0x4019fb33',tokenId:'0x17d70f7c'};
+async function rpc(method,params){
+  const r=await fetch(RPC,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});
+  const j=await r.json(); if(j.error) throw new Error(j.error.message); return j.result;
+}
+const encAddr=a=>a.toLowerCase().replace('0x','').padStart(64,'0');
+async function call(to,data){ return rpc('eth_call',[{to,data},'latest']); }
+function u256(hex){ return BigInt(!hex||hex==='0x'?'0x0':hex); }
+function fmt(v,dec){ const s=v.toString().padStart(dec+1,'0'); const i=s.slice(0,-dec), f=s.slice(-dec).replace(/0+$/,''); return f? i+'.'+f : i; }
+async function load(){
+  const app=document.getElementById('app');
+  try{
+    const block=parseInt(await rpc('eth_blockNumber',[]),16);
+    let html=`<div class="card"><h2>Chain</h2><div class="row"><span class="k">Robinhood Chain block</span><span>${block.toLocaleString()}</span></div></div>`;
+    for(const f of FACTORIES){
+      const cnt=u256(await call(f.factory,SEL.vaultCount));
+      const mOk=u256(await call(f.factory,SEL.approved+encAddr(f.morpho)))!==0n;
+      const lOk=u256(await call(f.factory,SEL.approved+encAddr(f.lp)))!==0n;
+      let etaTxt='';
+      if(f.timelock && !mOk){ const eta=Number(u256(await call(f.factory,SEL.eta+encAddr(f.morpho)))); if(eta>0) etaTxt=`<div class="row"><span class="k">Approval timelock until</span><span>${new Date(eta*1000).toLocaleString()}</span></div>`; }
+      const pos=u256(await call(f.morpho,SEL.posVal));
+      const acc=u256(await call(f.morpho,SEL.accrued));
+      const tid=u256(await call(f.lp,SEL.tokenId));
+      html+=`<div class="card"><h2>${f.key} factory</h2>
+      <div class="row"><span class="k">Factory</span><span class="mono">${f.factory}</span></div>
+      <div class="row"><span class="k">Vaults</span><span>${cnt.toString()}</span></div>
+      <div class="row"><span class="k">Morpho approved</span><span class="${mOk?'ok':'warn'}">${mOk?'yes':'no'}</span></div>
+      <div class="row"><span class="k">LP approved</span><span class="${lOk?'ok':'warn'}">${lOk?'yes':'no'}</span></div>${etaTxt}
+      <div class="row"><span class="k">Morpho position</span><span>${fmt(pos,6)} USDG</span></div>
+      <div class="row"><span class="k">Morpho accrued yield</span><span>${fmt(acc,6)} USDG</span></div>
+      <div class="row"><span class="k">LP position tokenId</span><span>${tid.toString()}</span></div></div>`;
+    }
+    app.innerHTML=html;
+    document.getElementById('updated').textContent='Updated '+new Date().toLocaleTimeString()+'.';
+  }catch(e){ app.innerHTML=`<div class="card">Could not read chain: ${e.message}</div>`; }
+}
+document.getElementById('refresh').addEventListener('click',load);
+load();
+</script>
+</body>
+</html>

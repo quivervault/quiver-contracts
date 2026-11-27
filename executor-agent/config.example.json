@@ -1,0 +1,41 @@
+{
+  "adminKeyPath": "./keys/deployer.key",
+  "adminWallet": "0x0d6fa82F4EAA4cfddaEeB5F8b3D66793Af5D621b",
+  "chainId": 4663,
+  "ethDecimals": 18,
+  "executorKeyPath": "./keys/executor.key",
+  "executorWallet": "0x28D227EbA00F81821238c8383c14Dd1723346221",
+  "factories": {
+    "v1": {
+      "factory": "0x681eE15f4c271143dAbf4a752eAaecB7F015A2E9",
+      "hasTimelockGetters": false,
+      "lp": "0x3f7c4d932aC21e4Be6eAD3feee5E51378425814d",
+      "lpWritesBlocked": true,
+      "morpho": "0x431A1C73DA1783bFD445aFA8BB062DAB98E589ec"
+    },
+    "v6": {
+      "factory": "0xee7f6607aaBb3E62F1Eee7143Cc52AEC93472369",
+      "hasTimelockGetters": true,
+      "lp": "0x265F9cfF1fdf2Bf396e3e15Cc6bb3ac8cF09c8Cd",
+      "lpWritesBlocked": false,
+      "morpho": "0x8070A912be3E5ed7a92ee98739E1a223c07551A5"
+    }
+  },
+  "gas": {
+    "gasLimitMultiplierBps": 13000,
+    "maxFeePerGasWei": "25000000"
+  },
+  "policy": {
+    "lowGasWarnEth": "0.00005",
+    "minCollectYieldEth": "0.00005",
+    "minCollectYieldUsdg": "0.01",
+    "minDeployEth": "0.0005",
+    "minDeployUsdg": "0.5",
+    "minSupplyUsdg": "0.5",
+    "mintSlippageBps": 40,
+    "planMaxAgeSeconds": 1800
+  },
+  "rpc": "https://rpc.mainnet.chain.robinhood.com",
+  "usdg": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+  "usdgDecimals": 6
+}

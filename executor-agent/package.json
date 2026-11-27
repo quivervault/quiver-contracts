@@ -1,0 +1,1 @@
+{"dependencies":{"ethers":"^6.17.0"},"description":"Quiver Executor Agent — monitor, plan, simulate and (only after explicit gas) execute Quiver executor actions on Robinhood Chain","license":"ISC","main":"agent.js","name":"quiver-executor-agent","scripts":{"plan":"node agent.js plan","status":"node agent.js status"},"version":"1.0.0"}
