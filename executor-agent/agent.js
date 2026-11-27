@@ -125,7 +125,7 @@ function decFor(token) { return token === ZERO ? ETH_DEC : USDG_DEC; }
 function symFor(token) { return token === ZERO ? 'ETH' : 'USDG'; }
 function short(a) { return a.slice(0, 6) + '…' + a.slice(-4); }
 function wib(tsSec) {
-  return new Date(tsSec * 1000).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', hour12: false }) + ' WIB';
+  return new Date(tsSec * 1000).toLocaleString('en-US', { timeZone: 'UTC', hour12: true }) + ' UTC';
 }
 function parseAmt(s, dec) { return ethers.parseUnits(String(s), dec); }
 
