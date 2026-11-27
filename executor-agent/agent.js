@@ -243,6 +243,49 @@ function printStatus(s) {
   console.log(`\nCatatan: status ini read-only. Jalankan "plan" untuk proposal + simulasi.`);
 }
 
+// ---------- HEY Research Lab record (read-only) ----------
+// The agent reads Quiver's public record on HEY (heyresearch.xyz) as part of
+// status, so the on-chain view can be compared with what HEY has recorded.
+// Every call carries the integration header HEY asked for:
+//   x-hey-integration: quiver-executor/1.0.0
+// Read-only, no key, fails soft: if HEY is unreachable, status still prints.
+
+async function heyGet(pathName) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), CFG.hey.timeoutMs || 15000);
+  try {
+    const res = await fetch(`${CFG.hey.apiBase}${pathName}`, {
+      headers: { 'x-hey-integration': CFG.hey.integration, 'accept': 'application/json' },
+      signal: ctrl.signal
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function printHey() {
+  console.log(`\n=== HEY Research Lab record (${CFG.hey.projectSlug}) ===`);
+  try {
+    const token = await heyGet(`/token/4663/${CFG.hey.quivToken}`);
+    const proj = token.project || {};
+    console.log(`Proyek: ${proj.name || '?'} ($${proj.symbol || '?'}) | ${proj.url || ''}`);
+    console.log(`Status aktivitas: ${proj.activityStatus || '?'} — ${proj.activityLabel || ''}`);
+    console.log(`Research level: ${proj.researchLevel || '?'} | ships 30 hari: ${proj.shipsLast30Days ?? '?'} | aktivitas terukur: ${proj.activityMeasured ?? '?'}`);
+    if (proj.deployedAt) console.log(`Token deployed: ${proj.deployedAt}`);
+    const snap = await heyGet(`/projects/${CFG.hey.projectSlug}/snapshot`).catch(() => null);
+    if (snap && snap.project) {
+      const sp = snap.project;
+      if (sp.lastShippedAt) console.log(`Last shipped (HEY): ${sp.lastShippedAt}`);
+      if (sp.stillBuildingState) console.log(`Still Building: ${sp.stillBuildingState}`);
+    }
+    console.log(`Badge: ${proj.badgeUrl || `https://heyresearch.xyz/badge/${CFG.hey.projectSlug}.svg`}`);
+  } catch (e) {
+    console.log(`(HEY tidak terjangkau sekarang: ${e.message} — status on-chain di atas tetap berlaku.)`);
+  }
+}
+
 // ---------- Planner ----------
 // Each proposal: { id, kind, signer: 'admin'|'executor', factoryKey, to, fn, args (JSON-safe), describe }
 // args are stored as strings; execute() re-encodes from the stored proposal
@@ -471,6 +514,7 @@ async function main() {
   const p = await getProvider();
   if (cmd === 'status') {
     printStatus(await readAll(p));
+    await printHey();
   } else if (cmd === 'plan') {
     const s = await readAll(p);
     const plan = await buildPlan(p, s);
