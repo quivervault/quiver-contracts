@@ -112,7 +112,7 @@ same wallet that is already factory admin + executor today. Mitigations:
 
 ## Status update (2026-11-24): BUILT + DEPLOYED
 
-Febri ordered the test phase skipped ("lewati saja tes nya dan buat").
+The test phase was skipped by order.
 - **PerpStrategy deployed: 0xB119368e1E1Abf8DF775577CFBCB103bB8fd2736**
   (deploy tx 0x069985325bd043c538c3336774d34c325cd03ee9812139c43a2b7d1ea7b6e540)
   and **approved in the factory** (setStrategy tx
