@@ -37,5 +37,12 @@
   },
   "rpc": "https://rpc.mainnet.chain.robinhood.com",
   "usdg": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
-  "usdgDecimals": 6
+  "usdgDecimals": 6,
+  "hey": {
+    "apiBase": "https://heyresearch.xyz/api",
+    "integration": "quiver-executor/1.0.0",
+    "projectSlug": "quiver-aca79a",
+    "quivToken": "0xaca79ade982d8e90117ff072dd7e016c115cf130",
+    "timeoutMs": 15000
+  }
 }
