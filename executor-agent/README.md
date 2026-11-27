@@ -61,7 +61,7 @@ x-hey-integration: quiver-executor/1.0.0
 Endpoints read (public, no key, read-only):
 
 - `GET /api/token/4663/<QUIV contract>` — token to project record
-- `GET /api/projects/quiver-aca79a/snapshot` — one-read project state
+- `GET /api/projects/quivervault/snapshot` — one-read project state
 
 The read fails soft: if HEY is unreachable, the on-chain status still prints.
 
